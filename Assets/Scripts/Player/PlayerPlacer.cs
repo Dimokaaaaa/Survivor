@@ -18,6 +18,7 @@ namespace Minecraft2D.Player
         [Header("Префабы")]
         [SerializeField] private GameObject wallPrefab;
         [SerializeField] private GameObject housePrefab;
+        [SerializeField] private GameObject workbenchPrefab;
 
         [Header("Настройки")]
         [SerializeField] private float maxPlaceDistance = 6f;
@@ -26,6 +27,7 @@ namespace Minecraft2D.Player
         [Header("Смещения по типу (юниты)")]
         [SerializeField] private Vector2 wallOffset = new Vector2(0f, -0.5f);
         [SerializeField] private Vector2 houseOffset = Vector2.zero;
+        [SerializeField] private Vector2 workbenchOffset = Vector2.zero;
 
         [Header("Ссылки")]
         [SerializeField] private Camera mainCamera;
@@ -56,6 +58,7 @@ namespace Minecraft2D.Player
 
             if (Input.GetKeyDown(KeyCode.Alpha1)) SelectType(ResourceType.Wall);
             if (Input.GetKeyDown(KeyCode.Alpha2)) SelectType(ResourceType.House);
+            if (Input.GetKeyDown(KeyCode.Alpha3)) SelectType(ResourceType.Workbench);
 
             // R работает ТОЛЬКО для стены
             if (Input.GetKeyDown(KeyCode.R) && SelectedType == ResourceType.Wall)
@@ -119,6 +122,7 @@ namespace Minecraft2D.Player
             {
                 ResourceType.Wall => wallPrefab,
                 ResourceType.House => housePrefab,
+                ResourceType.Workbench => workbenchPrefab,
                 _ => null
             };
         }
@@ -135,6 +139,7 @@ namespace Minecraft2D.Player
             {
                 ResourceType.Wall => wallOffset,
                 ResourceType.House => houseOffset,
+                ResourceType.Workbench => workbenchOffset,
                 _ => Vector2.zero
             };
 

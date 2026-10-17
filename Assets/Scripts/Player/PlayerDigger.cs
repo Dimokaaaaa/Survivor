@@ -6,20 +6,28 @@ using Minecraft2D.World.Resources;
 namespace Minecraft2D.Player
 {
     /// <summary>
-    /// Игрок копает объекты ЛКМ.
-    /// Raycast под курсор мыши → находит DamageableObject → наносит урон.
-    /// При поломке спавнит дроп ресурсов и передаёт ему тип.
+    /// Управляет копанием ресурсов и атакой по врагам.
+    /// Ресурсы: зажать ЛКМ. Враги: клик ЛКМ (с кулдауном).
     /// </summary>
     public class PlayerDigger : MonoBehaviour
     {
         [Header("Настройки копания")]
-        [SerializeField] private float damagePerSecond = 3f;
+        [SerializeField] private float baseDamagePerSecond = 3f;
         [SerializeField] private float maxDigDistance = 5f;
         [SerializeField] private LayerMask interactableLayer;
+
+        [Header("Настройки боя")]
+        [SerializeField] private float attackCooldown = 1f; // кулдаун между ударами
+        [SerializeField] private float handDamage = 5f;     // урон без инструмента/не тем
+        [SerializeField] private float swordDamage = 25f;   // урон мечом по врагам
+
+        [Header("Бонусы инструментов (для копания)")]
+        [SerializeField] private float toolBonusMultiplier = 2f;
 
         [Header("Ссылки")]
         [SerializeField] private Camera mainCamera;
         [SerializeField] private WorldProgressBar progressBar;
+        [SerializeField] private HeldTool heldTool;
 
         [Header("Префабы дропа")]
         [SerializeField] private GameObject woodDropPrefab;
@@ -27,16 +35,18 @@ namespace Minecraft2D.Player
 
         private DamageableObject currentTarget;
         private float currentHealth01 = 1f;
+        private float lastAttackTime;
 
         private void Update()
         {
+            // Зажата ли ЛКМ
             if (Input.GetMouseButton(0))
-                HandleDigging();
+                HandleInteraction();
             else
                 StopDigging();
         }
 
-        private void HandleDigging()
+        private void HandleInteraction()
         {
             DamageableObject target = GetTargetUnderMouse();
 
@@ -46,24 +56,95 @@ namespace Minecraft2D.Player
                 return;
             }
 
-            if (target != currentTarget)
-                StartDigging(target);
+            if (target.isEnemy)
+            {
+                // ЛОГИКА БОЯ (клик + кулдаун)
+                if (Input.GetMouseButtonDown(0) && Time.time - lastAttackTime >= attackCooldown)
+                {
+                    lastAttackTime = Time.time;
+                    AttackEnemy(target);
+                }
+                StopDigging(); // Скрываем шкалу копания для врагов
+            }
+            else
+            {
+                // ЛОГИКА КОПАНИЯ (зажимаем ЛКМ)
+                if (target != currentTarget)
+                    StartDigging(target);
 
-            currentHealth01 -= (damagePerSecond / 10f) * Time.deltaTime;
+                DigResource(target);
+            }
+        }
+
+        // ==========================================
+        // БОЙ С ВРАГАМИ
+        // ==========================================
+        private void AttackEnemy(DamageableObject target)
+        {
+            float damage = handDamage;
+
+            if (heldTool != null && heldTool.CurrentTool == ResourceType.Sword)
+                damage = swordDamage;
+
+            heldTool?.Swing(); // Анимация взмаха
+
+            Debug.Log($"Игрок бьет {target.name} на {damage} урона");
+
+            bool destroyed = target.TakeDamage(damage);
+            if (destroyed)
+            {
+                SpawnDrop(target);
+                Destroy(target.gameObject);
+            }
+        }
+
+        // ==========================================
+        // КОПАНИЕ РЕСУРСОВ
+        // ==========================================
+        private void DigResource(DamageableObject target)
+        {
+            float damage = GetDigDamage(target);
+
+            currentHealth01 -= (damage / 10f) * Time.deltaTime;
 
             if (progressBar != null)
                 progressBar.SetProgress(currentHealth01);
 
-            bool destroyed = target.TakeDamage(damagePerSecond * Time.deltaTime);
+            bool destroyed = target.TakeDamage(damage * Time.deltaTime);
 
             if (destroyed)
             {
                 SpawnDrop(target);
                 StopDigging();
-                Destroy(target.gameObject);
+
+                // Если у объекта есть Respawnable (деревья, камни), не удаляем его
+                if (target.GetComponent<Respawnable>() == null)
+                    Destroy(target.gameObject);
             }
         }
 
+        private float GetDigDamage(DamageableObject target)
+        {
+            float damage = baseDamagePerSecond;
+
+            if (heldTool == null) return damage;
+
+            ResourceType tool = heldTool.CurrentTool;
+
+            // Кирка → бонус на камень
+            if (tool == ResourceType.Pickaxe && target.DropResource == ResourceType.Stone)
+                damage *= toolBonusMultiplier;
+
+            // Топор → бонус на дерево
+            if (tool == ResourceType.Axe && target.DropResource == ResourceType.Wood)
+                damage *= toolBonusMultiplier;
+
+            return damage;
+        }
+
+        // ==========================================
+        // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+        // ==========================================
         private void StartDigging(DamageableObject target)
         {
             currentTarget = target;
@@ -75,14 +156,14 @@ namespace Minecraft2D.Player
                 progressBar.Show(pos);
                 progressBar.SetProgress(1f);
             }
+
+            heldTool?.Swing();
         }
 
         private void StopDigging()
         {
             currentTarget = null;
-
-            if (progressBar != null)
-                progressBar.Hide();
+            if (progressBar != null) progressBar.Hide();
         }
 
         private DamageableObject GetTargetUnderMouse()
@@ -93,36 +174,22 @@ namespace Minecraft2D.Player
             float distance = Vector2.Distance(transform.position, mouseWorld);
             if (distance > maxDigDistance) return null;
 
-            RaycastHit2D hit = Physics2D.Raycast(
-                mouseWorld,
-                Vector2.zero,
-                Mathf.Infinity,
-                interactableLayer
-            );
-
+            RaycastHit2D hit = Physics2D.Raycast(mouseWorld, Vector2.zero, Mathf.Infinity, interactableLayer);
             if (hit.collider == null) return null;
 
             return hit.collider.GetComponentInParent<DamageableObject>();
         }
 
-        /// <summary>
-        /// Спавнит дроп с правильным типом ресурса.
-        /// После Instantiate находим ResourceItem и вызываем Setup().
-        /// </summary>
         private void SpawnDrop(DamageableObject target)
         {
             GameObject prefab = target.DropResource switch
             {
                 ResourceType.Wood => woodDropPrefab,
                 ResourceType.Stone => stoneDropPrefab,
-                _ => null
+                _ => null // Для зомби и верстака дропа нет
             };
 
-            if (prefab == null)
-            {
-                Debug.LogWarning($"PlayerDigger: префаб для {target.DropResource} не задан!");
-                return;
-            }
+            if (prefab == null) return;
 
             int amount = Random.Range(target.DropMinAmount, target.DropMaxAmount + 1);
 
@@ -132,10 +199,8 @@ namespace Minecraft2D.Player
                 Vector3 pos = target.transform.position + (Vector3)offset;
 
                 GameObject dropObj = Instantiate(prefab, pos, Quaternion.identity);
-
                 ResourceItem item = dropObj.GetComponent<ResourceItem>();
-                if (item != null)
-                    item.Setup(target.DropResource, 1);
+                if (item != null) item.Setup(target.DropResource, 1);
             }
         }
     }

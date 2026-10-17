@@ -23,6 +23,9 @@ namespace Minecraft2D.UI
         [Header("Кнопка рюкзака")]
         [SerializeField] private Button backpackButton;
 
+        [Header("Закрытие инвентаря")]
+        [SerializeField] private Button closeInventoryButton;
+
         [Header("Иконки")]
         [SerializeField] private IconsDatabase iconsDatabase;
 
@@ -44,6 +47,9 @@ namespace Minecraft2D.UI
 
             if (backpackButton != null)
                 backpackButton.onClick.AddListener(ToggleFullInventory);
+
+            if (closeInventoryButton != null)
+                closeInventoryButton.onClick.AddListener(ToggleFullInventory);
 
             if (Inventory.Instance != null)
                 Inventory.Instance.OnInventoryChanged += RefreshAll;

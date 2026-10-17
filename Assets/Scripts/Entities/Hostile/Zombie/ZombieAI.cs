@@ -70,7 +70,12 @@ namespace Minecraft2D.Entities.Hostile.Zombie
         {
             if (Time.time - lastAttackTime < attackCooldown) return;
             lastAttackTime = Time.time;
-            playerHealth?.TakeDamage(attackDamage);
+
+            if (playerHealth != null)
+            {
+                // Передаём позицию зомби как точку атаки
+                playerHealth.TakeDamage(attackDamage, transform.position);
+            }
         }
     }
 }

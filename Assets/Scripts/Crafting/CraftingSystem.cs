@@ -1,5 +1,7 @@
 using UnityEngine;
 using Minecraft2D.InventorySystem;
+using Minecraft2D.World;
+using Minecraft2D.World.Resources;
 
 namespace Minecraft2D.Crafting
 {
@@ -19,12 +21,25 @@ namespace Minecraft2D.Crafting
 
         public bool CanCraft(CraftingRecipe recipe)
         {
-            var inv = Inventory.Instance;
-            if (inv == null || recipe == null) return false;
+            if (recipe == null) return false;
 
+            var inv = Inventory.Instance;
+            if (inv == null) return false;
+
+            // Проверка ресурсов
             if (inv.Get(recipe.ingredient1) < recipe.ingredient1Amount) return false;
-            if (recipe.ingredient2 != World.Resources.ResourceType.None &&
+            if (recipe.ingredient2 != ResourceType.None &&
                 inv.Get(recipe.ingredient2) < recipe.ingredient2Amount) return false;
+
+            // Проверка верстака
+            if (recipe.requiresWorkbench)
+            {
+                var player = GameObject.FindGameObjectWithTag("Player");
+                if (player == null) return false;
+
+                if (!WorkbenchInteraction.IsPlayerNearAnyWorkbench(player.transform.position))
+                    return false;
+            }
 
             return true;
         }
@@ -36,7 +51,7 @@ namespace Minecraft2D.Crafting
             var inv = Inventory.Instance;
             inv.Spend(recipe.ingredient1, recipe.ingredient1Amount);
 
-            if (recipe.ingredient2 != World.Resources.ResourceType.None)
+            if (recipe.ingredient2 != ResourceType.None)
                 inv.Spend(recipe.ingredient2, recipe.ingredient2Amount);
 
             inv.Add(recipe.result, recipe.resultAmount);

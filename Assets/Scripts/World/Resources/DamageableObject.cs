@@ -1,25 +1,24 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using UnityEngine.Events;
 using Minecraft2D.World.Resources;
 
 namespace Minecraft2D.World
 {
-    /// <summary>
-    /// Компонент для ломаемых объектов (дерево, камень).
-    /// Хранит HP, принимает урон, сообщает об уничтожении.
-    /// </summary>
     public class DamageableObject : MonoBehaviour
     {
-        [Header("Прочность")]
+        [Header("РџСЂРѕС‡РЅРѕСЃС‚СЊ")]
         [SerializeField] private float maxHealth = 5f;
 
-        [Header("Ресурсы при поломке")]
+        [Header("РўРёРї РѕР±СЉРµРєС‚Р°")]
+        public bool isEnemy = false; // вњ… Р“Р°Р»РєР° РґР»СЏ Р·РѕРјР±Рё
+
+        [Header("Р РµСЃСѓСЂСЃС‹ РїСЂРё РїРѕР»РѕРјРєРµ")]
         [SerializeField] private ResourceType dropResource = ResourceType.Wood;
         [SerializeField] private int dropMinAmount = 1;
         [SerializeField] private int dropMaxAmount = 3;
 
-        [Header("События")]
-        public UnityEvent<float> OnDamaged;   // нормализованное HP (0..1)
+        [Header("РЎРѕР±С‹С‚РёСЏ")]
+        public UnityEvent<float> OnDamaged;
         public UnityEvent OnDestroyed;
 
         private float currentHealth;
@@ -34,9 +33,6 @@ namespace Minecraft2D.World
             currentHealth = maxHealth;
         }
 
-        /// <summary>
-        /// Наносит урон. Возвращает true, если объект уничтожен.
-        /// </summary>
         public bool TakeDamage(float amount)
         {
             if (IsDestroyed) return false;
@@ -53,6 +49,14 @@ namespace Minecraft2D.World
                 return true;
             }
             return false;
+        }
+
+        // вњ… Р”РћР‘РђР’Р¬ Р­РўРћРў РњР•РўРћР” Р”Р›РЇ Р’РћР—Р РћР–Р”Р•РќРРЇ Р Р•РЎРЈР РЎРћР’
+        public void ResetHealth()
+        {
+            currentHealth = maxHealth;
+            IsDestroyed = false;
+            OnDamaged?.Invoke(1f); // Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј С€РєР°Р»Сѓ (РµСЃР»Рё РµСЃС‚СЊ)
         }
     }
 }
